@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Firebase 테스트 (Hosting)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #ff6b35;
+            text-align: center;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #ff6b35;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #e55a2b;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .data-list {
+            margin-top: 20px;
+        }
+        .data-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #ff6b35;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .data-content {
+            flex: 1;
+        }
+        .delete-btn {
+            background-color: #dc3545;
+            padding: 5px 10px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase Firestore 테스트 (Hosting)</h1>
+        
+        <div class="input-group">
+            <label for="name">이름:</label>
+            <input type="text" id="name" placeholder="이름을 입력하세요">
+        </div>
+        
+        <div class="input-group">
+            <label for="message">메시지:</label>
+            <input type="text" id="message" placeholder="메시지를 입력하세요">
+        </div>
+        
+        <button onclick="addData()">데이터 추가</button>
+        <button onclick="loadData()">데이터 로드</button>
+        <button onclick="clearData()">데이터 삭제</button>
+        
+        <div id="status"></div>
+        
+        <div class="data-list">
+            <h3>저장된 데이터:</h3>
+            <div id="dataContainer"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Firebase Hosting을 사용할 때는 자동으로 설정을 가져옵니다
+        // /__/firebase/init.js 스크립트가 자동으로 firebaseConfig를 제공합니다
+        let app;
+        let db;
+
+        // Firebase 설정을 동적으로 가져오기
+        async function initFirebase() {
+            try {
+                // Firebase Hosting에서는 이 방법으로 자동 설정 가져오기
+                const response = await fetch('/__/firebase/init.json');
+                const firebaseConfig = await response.json();
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                
+                showStatus('Firebase 연결 완료! (자동 설정)', 'success');
+            } catch (error) {
+                console.log('Hosting 환경이 아닙니다. 기본 설정 사용...');
+                // Hosting이 아닌 경우 기본 설정 사용
+                const firebaseConfig = {
+                    apiKey: "AIzaSyCVjYcU2m0W9Fl1SKOErbwEPpjanNzK2MM",
+                    authDomain: "mcp-demo-2024.firebaseapp.com",
+                    projectId: "mcp-demo-2024",
+                    storageBucket: "mcp-demo-2024.firebasestorage.app",
+                    messagingSenderId: "411307427702",
+                    appId: "1:411307427702:web:1af8221555fbde59a7dc57"
+                };
+                
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                
+                showStatus('Firebase 연결 완료! (기본 설정)', 'success');
+            }
+        }
+
+        // 전역 함수로 설정
+        window.addData = async function() {
+            console.log('addData 함수 호출됨');
+            const name = document.getElementById('name').value;
+            const message = document.getElementById('message').value;
+            console.log('입력값:', name, message);
+            
+            if (!name || !message) {
+                showStatus('이름과 메시지를 모두 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                const newData = {
+                    name: name,
+                    message: message,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const docRef = await addDoc(collection(db, 'messages'), newData);
+                showStatus(`데이터가 성공적으로 추가되었습니다! ID: ${docRef.id}`, 'success');
+                
+                // 새로 추가된 데이터를 바로 화면에 표시
+                addDataToUI(docRef.id, newData);
+                
+                // 입력 필드 클리어
+                document.getElementById('name').value = '';
+                document.getElementById('message').value = '';
+            } catch (error) {
+                showStatus(`에러 발생: ${error.message}`, 'error');
+                console.error('Error adding document: ', error);
+            }
+        };
+
+        window.loadData = async function() {
+            try {
+                const querySnapshot = await getDocs(collection(db, 'messages'));
+                const dataContainer = document.getElementById('dataContainer');
+                dataContainer.innerHTML = '';
+                
+                if (querySnapshot.empty) {
+                    dataContainer.innerHTML = '<div class="data-item">저장된 데이터가 없습니다.</div>';
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    addDataToUI(doc.id, doc.data());
+                });
+                
+                showStatus('데이터를 성공적으로 로드했습니다.', 'success');
+            } catch (error) {
+                showStatus(`데이터 로드 에러: ${error.message}`, 'error');
+                console.error('Error loading documents: ', error);
+            }
+        };
+
+        window.clearData = async function() {
+            if (!confirm('모든 데이터를 삭제하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                const querySnapshot = await getDocs(collection(db, 'messages'));
+                const deletePromises = querySnapshot.docs.map(docSnapshot => 
+                    deleteDoc(doc(db, 'messages', docSnapshot.id))
+                );
+                
+                await Promise.all(deletePromises);
+                showStatus('모든 데이터가 삭제되었습니다.', 'success');
+                loadData();
+            } catch (error) {
+                showStatus(`데이터 삭제 에러: ${error.message}`, 'error');
+                console.error('Error deleting documents: ', error);
+            }
+        };
+
+        // 데이터를 UI에 추가하는 공통 함수
+        function addDataToUI(docId, data) {
+            console.log('addDataToUI 호출됨:', docId, data);
+            const dataContainer = document.getElementById('dataContainer');
+            
+            if (dataContainer.innerHTML.includes('저장된 데이터가 없습니다')) {
+                dataContainer.innerHTML = '';
+            }
+            
+            const dataItem = document.createElement('div');
+            dataItem.className = 'data-item';
+            dataItem.id = `item-${docId}`;
+            dataItem.innerHTML = `
+                <div class="data-content">
+                    <strong>${data.name}</strong>: ${data.message}
+                    <br><small>시간: ${new Date(data.timestamp).toLocaleString('ko-KR')}</small>
+                    <br><small>ID: ${docId}</small>
+                </div>
+                <button class="delete-btn" onclick="deleteItem('${docId}')">삭제</button>
+            `;
+            dataContainer.appendChild(dataItem);
+        }
+
+        // 개별 데이터 삭제 함수
+        window.deleteItem = async function(docId) {
+            if (!confirm('이 데이터를 삭제하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                await deleteDoc(doc(db, 'messages', docId));
+                const itemElement = document.getElementById(`item-${docId}`);
+                if (itemElement) {
+                    itemElement.remove();
+                }
+                
+                const dataContainer = document.getElementById('dataContainer');
+                if (dataContainer.children.length === 0) {
+                    dataContainer.innerHTML = '<div class="data-item">저장된 데이터가 없습니다.</div>';
+                }
+                
+                showStatus('데이터가 삭제되었습니다.', 'success');
+            } catch (error) {
+                showStatus(`삭제 에러: ${error.message}`, 'error');
+                console.error('Error deleting document: ', error);
+            }
+        };
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // 페이지 로드 시 Firebase 초기화 및 데이터 자동 로드
+        window.addEventListener('load', async () => {
+            await initFirebase();
+            loadData();
+        });
+    </script>
+</body>
+</html> 
