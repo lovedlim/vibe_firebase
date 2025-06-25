@@ -106,9 +106,15 @@
             <input type="text" id="message" placeholder="메시지를 입력하세요">
         </div>
         
+        <div class="input-group">
+            <label for="search">검색:</label>
+            <input type="text" id="search" placeholder="이름 또는 메시지로 검색..." onkeyup="searchData()">
+        </div>
+        
         <button onclick="addData()">데이터 추가</button>
         <button onclick="loadData()">데이터 로드</button>
         <button onclick="clearData()">데이터 삭제</button>
+        <button onclick="sortByTime()">시간순 정렬</button>
         
         <div id="status"></div>
         
@@ -262,6 +268,44 @@
                 showStatus(`삭제 에러: ${error.message}`, 'error');
                 console.error('Error deleting document: ', error);
             }
+        };
+
+        // 검색 기능
+        window.searchData = function() {
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            const dataItems = document.querySelectorAll('.data-item');
+            
+            dataItems.forEach(item => {
+                const content = item.textContent.toLowerCase();
+                if (content.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // 검색 결과 개수 표시
+            const visibleItems = Array.from(dataItems).filter(item => item.style.display !== 'none');
+            if (searchTerm) {
+                showStatus(`검색 결과: ${visibleItems.length}개`, 'success');
+            }
+        };
+
+        // 시간순 정렬 기능
+        window.sortByTime = function() {
+            const dataContainer = document.getElementById('dataContainer');
+            const dataItems = Array.from(dataContainer.children);
+            
+            dataItems.sort((a, b) => {
+                const timeA = a.querySelector('small').textContent;
+                const timeB = b.querySelector('small').textContent;
+                return new Date(timeB.split('시간: ')[1]) - new Date(timeA.split('시간: ')[1]);
+            });
+            
+            dataContainer.innerHTML = '';
+            dataItems.forEach(item => dataContainer.appendChild(item));
+            
+            showStatus('시간순으로 정렬되었습니다.', 'success');
         };
 
         function showStatus(message, type) {
